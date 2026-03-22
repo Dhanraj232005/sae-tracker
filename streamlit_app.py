@@ -7,7 +7,7 @@ st.set_page_config(page_title="SAE Team Portal", layout="wide", initial_sidebar_
 # --- TEAM LOGO MAPPING ---
 # Replace these URLs with your actual team logo links if you have them!
 LOGO_MAP = {
-    "Miles": "https://ibb.co/3mg7J9gC",
+    "Miles": "https://img.icons8.com/fluency/96/lightning-bolt.png",
     "Racing": "https://img.icons8.com/fluency/96/f1-car.png",
     "Phoenix": "https://img.icons8.com/fluency/96/fire-element.png",
     "Kronos": "https://img.icons8.com/fluency/96/clock.png",
