@@ -1,27 +1,29 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
 st.set_page_config(page_title="SAE Interview Tracker", layout="wide")
 
-# --- TEAMS LIST ---
-TEAMS = ["Speedsters", "Karting", "Racing", "Miles", "Impulse", "Phoenix", "Skylark", "Kronos", "Astra", "Robocon", "Helios"]
+# --- LOAD LOCAL EXCEL FILE ---
+FILE_NAME = "SAE_Interview_Database.xlsx"
 
-st.title("🏎️ SAE Interview Dashboard")
-
-conn = st.connection("gsheets", type=GSheetsConnection)
-
+@st.cache_data
 def load_data():
-    candidates = conn.read(worksheet="Candidates", ttl=0)
-    creds = conn.read(worksheet="Credentials", ttl=0)
+    # Reading the two tabs from your uploaded Excel
+    candidates = pd.read_excel(FILE_NAME, sheet_name='Candidates')
+    creds = pd.read_excel(FILE_NAME, sheet_name='Credentials')
     return candidates, creds
 
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
+if 'df' not in st.session_state:
+    candidates, _ = load_data()
+    st.session_state.df = candidates
 
+# --- LOGIN LOGIC ---
 if not st.session_state.logged_in:
     with st.form("login"):
+        st.header("🏎️ SAE Coordinator Login")
         user = st.text_input("Username")
         pw = st.text_input("Password", type="password")
         if st.form_submit_button("Login"):
@@ -33,39 +35,40 @@ if not st.session_state.logged_in:
                 st.session_state.team = user_data.iloc[0]['Assigned Team']
                 st.rerun()
             else:
-                st.error("Wrong credentials")
+                st.error("Invalid Username/Password")
 else:
-    candidates, _ = load_data()
-    st.sidebar.button("Refresh Data")
+    # --- APP CONTENT ---
+    st.sidebar.title(f"Team: {st.session_state.team}")
+    
+    # Download Button (Essential for Option B)
+    csv = st.session_state.df.to_csv(index=False).encode('utf-8')
+    st.sidebar.download_button("📥 Download Final Data", csv, "interview_results.csv", "text/csv")
+
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
         st.rerun()
 
+    df = st.session_state.df
+
     if st.session_state.role == "GC":
-        st.header("Admin Master View")
-        search = st.text_input("Search Candidate by Name or Roll No")
-        if search:
-            candidates = candidates[candidates['Full Name'].str.contains(search, case=False) | candidates['Roll No'].astype(str).str.contains(search)]
-        st.dataframe(candidates)
-    
+        st.header("Admin Master Dashboard")
+        st.dataframe(df)
     else:
         team = st.session_state.team
-        st.header(f"Team Room: {team}")
+        st.header(f"Interviewing for: {team}")
         
-        # Filter for Top 4 Preferences
-        mask = (candidates['Pref 1'] == team) | (candidates['Pref 2'] == team) | (candidates['Pref 3'] == team) | (candidates['Pref 4'] == team)
-        team_df = candidates[mask]
+        # Filter logic
+        mask = (df['Pref 1'] == team) | (df['Pref 2'] == team) | (df['Pref 3'] == team) | (df['Pref 4'] == team)
+        team_df = df[mask]
 
         for idx, row in team_df.iterrows():
             with st.expander(f"{row['Full Name']} ({row['Roll No']}) - {row['Status']}"):
                 c1, c2 = st.columns(2)
-                if c1.button("START", key=f"s_{idx}"):
-                    candidates.at[idx, 'Start Time'] = datetime.now().strftime("%H:%M:%S")
-                    candidates.at[idx, 'Status'] = "In Progress"
-                    conn.update(worksheet="Candidates", data=candidates)
+                if c1.button("START TIMER", key=f"s_{idx}"):
+                    st.session_state.df.at[idx, 'Start Time'] = datetime.now().strftime("%H:%M:%S")
+                    st.session_state.df.at[idx, 'Status'] = "In Progress"
                     st.rerun()
-                if c2.button("STOP", key=f"p_{idx}"):
-                    candidates.at[idx, 'End Time'] = datetime.now().strftime("%H:%M:%S")
-                    candidates.at[idx, 'Status'] = "Completed"
-                    conn.update(worksheet="Candidates", data=candidates)
+                if c2.button("STOP TIMER", key=f"p_{idx}"):
+                    st.session_state.df.at[idx, 'End Time'] = datetime.now().strftime("%H:%M:%S")
+                    st.session_state.df.at[idx, 'Status'] = "Completed"
                     st.rerun()
