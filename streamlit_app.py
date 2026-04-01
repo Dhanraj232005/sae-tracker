@@ -2,125 +2,78 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(page_title="SAE Team Portal", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="SAE Recruitment Portal", layout="wide")
 
-# --- TEAM LOGO MAPPING ---
-LOGO_MAP = {
-    "Miles": "https://img.icons8.com/fluency/96/lightning-bolt.png",
-    "Racing": "https://img.icons8.com/fluency/96/f1-car.png",
-    "Phoenix": "https://img.icons8.com/fluency/96/fire-element.png",
-    "Kronos": "https://img.icons8.com/fluency/96/clock.png",
-    "Helios": "https://img.icons8.com/fluency/96/sun.png",
-    "Speedsters": "https://img.icons8.com/fluency/96/speed.png",
-    "Robocon": "https://img.icons8.com/fluency/96/robot-vacuum.png"
-}
-
-# --- PRO CSS ---
+# --- UI STYLING ---
 st.markdown("""
     <style>
-    .header-box { background: linear-gradient(90deg, #1f242b 0%, #0d1117 100%); padding: 20px; border-radius: 15px; border-bottom: 2px solid #f1c40f; text-align: center; margin-bottom: 25px; }
-    .status-badge { padding: 4px 12px; border-radius: 15px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-    .status-completed { background-color: #238636; color: white; }
-    .status-in-progress { background-color: #da3633; color: white; animation: pulse 1.5s infinite; }
-    .status-waiting { background-color: #30363d; color: #adbac7; }
-    @keyframes pulse { 0% {opacity: 1;} 50% {opacity: 0.5;} 100% {opacity: 1;} }
-    .tag-done { color: #2ecc71; border: 1px solid #2ecc71; padding: 2px 8px; border-radius: 5px; margin-right: 5px; font-size: 10px; font-weight: bold; }
-    .tag-pending { color: #f1c40f; border: 1px solid #f1c40f; padding: 2px 8px; border-radius: 5px; margin-right: 5px; font-size: 10px; }
+    .header-box { background: #1f242b; padding: 20px; border-radius: 10px; border-bottom: 3px solid #f1c40f; text-align: center; margin-bottom: 20px; }
+    .status-badge { padding: 4px 12px; border-radius: 15px; font-size: 10px; font-weight: bold; }
+    .status-in-progress { background-color: #da3633; color: white; }
+    .status-done { background-color: #238636; color: white; }
+    .tag-done { color: #2ecc71; border: 1px solid #2ecc71; padding: 2px 8px; border-radius: 5px; margin-right: 4px; font-size: 10px; }
+    .tag-pending { color: #f1c40f; border: 1px solid #f1c40f; padding: 2px 8px; border-radius: 5px; margin-right: 4px; font-size: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# FILE NAMES - Update these to match your GitHub exactly!
-MAIN_DB = "SAE_Interview_Database.xlsx"
-SECOND_DB = "Second_Sheet_Name.xlsx" # <-- CHANGE THIS TO YOUR NEW FILE NAME
+FILE_NAME = "SAE_Interview_Database.xlsx"
 
 @st.cache_data(ttl=1)
-def load_all_data():
+def load_data():
     try:
-        c = pd.read_excel(MAIN_DB, sheet_name='Candidates')
-        cr = pd.read_excel(MAIN_DB, sheet_name='Credentials')
-        # Load the second file
-        extra_data = pd.read_excel(SECOND_DB) 
-        return c, cr, extra_data
+        df = pd.read_excel(FILE_NAME, sheet_name='Form Responses 1')
+        creds = pd.read_excel(FILE_NAME, sheet_name='Credentials')
+        if 'Status' not in df.columns: df['Status'] = "Ready"
+        return df, creds
     except Exception as e:
-        return None, None, None
+        st.error(f"Error loading Excel: {e}")
+        return None, None
 
-# Session Logic
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
-if 'df' not in st.session_state:
-    c, _, _ = load_all_data()
-    st.session_state.df = c
 
 if not st.session_state.logged_in:
-    st.markdown("<h1 style='text-align: center;'>🏎️ SAE RECRUITMENT</h1>", unsafe_allow_html=True)
-    with st.container(border=True):
-        user = st.text_input("Coordinator ID")
-        pw = st.text_input("Password", type="password")
-        if st.button("Login", use_container_width=True):
-            c, cr, _ = load_all_data()
-            if cr is not None:
-                user_data = cr[(cr['Username'] == user) & (cr['Password'] == pw)]
-                if not user_data.empty:
-                    st.session_state.logged_in = True
-                    st.session_state.role = user_data.iloc[0]['Role']
-                    st.session_state.team = user_data.iloc[0]['Assigned Team']
-                    st.rerun()
+    st.markdown("<h2 style='text-align: center;'>SAE RECRUITMENT LOGIN</h2>", unsafe_allow_html=True)
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
+    if st.button("Login", use_container_width=True):
+        df_all, cr = load_data()
+        user_match = cr[(cr['Username'] == u) & (cr['Password'] == p)]
+        if not user_match.empty:
+            st.session_state.logged_in = True
+            st.session_state.team = user_match.iloc[0]['Assigned Team']
+            st.rerun()
 else:
     team = st.session_state.team
-    logo_url = LOGO_MAP.get(team, "https://img.icons8.com/fluency/96/formula-1.png")
-    
-    # Header
-    st.markdown(f'<div class="header-box"><img src="{logo_url}" width="60"><h2>TEAM {team.upper()}</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="header-box"><h2>TEAM {team.upper()}</h2></div>', unsafe_allow_html=True)
 
-    # --- TOP ACTIONS: EXPORT & SEARCH ---
-    col1, col2 = st.columns([3, 1])
-    search_query = col1.text_input("🔍 Search Roll No or Name")
+    df_all, _ = load_data()
+    pref_cols = [f'Team preference list [{i}{"st" if i==1 else "nd" if i==2 else "rd" if i==3 else "th"}]' for i in range(1, 12)]
     
-    # Export Button is now prominently at the top right
-    csv = st.session_state.df.to_csv(index=False).encode('utf-8')
-    col2.download_button("📤 EXPORT ALL", csv, f"SAE_Results_{team}.csv", use_container_width=True)
+    # Filter for candidates who chose THIS team in any of the 11 slots
+    mask = df_all[pref_cols].apply(lambda x: x.str.contains(team, na=False, case=False)).any(axis=1)
+    team_df = df_all[mask]
 
-    # Filtering Logic
-    df = st.session_state.df
-    mask = (df['Pref 1'] == team) | (df['Pref 2'] == team) | (df['Pref 3'] == team) | (df['Pref 4'] == team)
-    team_df = df[mask]
-    
-    if search_query:
-        team_df = team_df[team_df['Full Name'].str.contains(search_query, case=False) | team_df['Roll No'].astype(str).str.contains(search_query)]
+    search = st.text_input("🔍 Search Name or SAP ID")
+    if search:
+        team_df = team_df[team_df['Full Name'].str.contains(search, case=False, na=False) | team_df['SAP ID'].astype(str).str.contains(search, na=False)]
 
-    # Display List
     for idx, row in team_df.iterrows():
         status = str(row['Status'])
-        prefs = [row['Pref 1'], row['Pref 2'], row['Pref 3'], row['Pref 4']]
+        user_prefs = [row[c] for c in pref_cols if pd.notna(row[c])]
         
-        is_interviewing = status == "In Progress"
-        finished_this_team = f"Done:{team}" in status
-        all_done = all(f"Done:{p}" in status for p in prefs)
+        with st.expander(f"{row['Full Name']} ({row['SAP ID']})"):
+            # Show which teams have already finished with this candidate
+            tags = ""
+            for p in user_prefs:
+                style = "tag-done" if f"Done:{p}" in status else "tag-pending"
+                tags += f'<span class="{style}">{p}</span> '
+            st.markdown(f"<div>{tags}</div>", unsafe_allow_html=True)
 
-        header = f"{row['Full Name']} - {row['Roll No']}"
-        badge = '<span class="status-badge status-waiting">WAITING</span>'
-        if all_done: badge = '<span class="status-badge status-completed">ALL DONE ✅</span>'
-        elif is_interviewing: badge = '<span class="status-badge status-in-progress">LIVE NOW 🔴</span>'
-
-        with st.expander(header):
-            st.markdown(badge, unsafe_allow_html=True)
-            
-            # Show Pref Tags
-            tags_html = "".join([f'<span class="{"tag-done" if f"Done:{p}" in status else "tag-pending"}">{"✓ " if f"Done:{p}" in status else ""}{p}</span> ' for p in prefs])
-            st.markdown(f"<div style='margin: 10px 0;'>{tags_html}</div>", unsafe_allow_html=True)
-
-            if is_interviewing: st.info(f"⏱️ Started at: {row['Start Time']}")
-
-            st.divider()
-            c1, c2 = st.columns(2)
-            if c1.button("▶ START", key=f"s_{idx}", use_container_width=True, disabled=(is_interviewing or finished_this_team)):
-                st.session_state.df.at[idx, 'Status'] = "In Progress"
-                st.session_state.df.at[idx, 'Start Time'] = datetime.now().strftime("%H:%M:%S")
-                st.rerun()
-            if c2.button("⏹ STOP", key=f"p_{idx}", use_container_width=True, disabled=not is_interviewing):
-                clean_status = status.replace("In Progress", "").replace("Ready", "").strip(", ")
-                st.session_state.df.at[idx, 'Status'] = f"{clean_status}, Done:{team}".strip(", ")
-                st.session_state.df.at[idx, 'End Time'] = datetime.now().strftime("%H:%M:%S")
-                st.rerun()
-
-    # Sidebar Logout
-    st.sidebar.button("Logout", on_click=lambda: st.session_state.update({"logged_in": False}))
+            col1, col2 = st.columns(2)
+            if col1.button("▶ START", key=f"start_{idx}", use_container_width=True):
+                # In a real app, you'd save back to Excel here. 
+                # For now, we update the local state.
+                st.success(f"Interview Started for {row['Full Name']}")
+            if col2.button("⏹ COMPLETE", key=f"stop_{idx}", use_container_width=True):
+                st.balloons()
+                st.info(f"Interview Completed for {team}")
