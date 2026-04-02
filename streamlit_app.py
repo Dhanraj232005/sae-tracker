@@ -1,11 +1,12 @@
-import streamlit as st
+        import streamlit as st
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
 import os
+from io import BytesIO
 
 # --- CONFIG & ADMIN SETTINGS ---
 st.set_page_config(page_title="DJS SAE Recruitment Portal", layout="wide")
-MASTER_PASSWORD = "T7@k9#Lm2$Q4" 
+MASTER_PASSWORD = "MilesAdmin2026" 
 
 # --- LOGO MAPPING ---
 TEAM_LOGOS = {
@@ -28,7 +29,6 @@ if 'dialog_active' not in st.session_state:
 if 'logged_in' not in st.session_state: 
     st.session_state.logged_in = False
 
-# Silent Sync
 if not st.session_state.dialog_active:
     st_autorefresh(interval=3000, limit=None, key="live_sync")
 
@@ -105,33 +105,38 @@ if not st.session_state.logged_in:
                     st.rerun()
                 else: st.error("Invalid credentials.")
 else:
-    # --- MAIN UI ---
     team = st.session_state.team
-    
-    # Header with Logo and Title
     col_logo, col_title = st.columns([1, 5])
     logo_path = TEAM_LOGOS.get(team)
     if logo_path and os.path.exists(logo_path):
         col_logo.image(logo_path, width=110)
     
-    # Strictly display "SPEEDSTERS" for the specific team on screen
     display_name = "SPEEDSTERS" if team == "Speedsters" else team.upper()
     st.markdown(f'<div class="header-box"><h1>{display_name}</h1></div>', unsafe_allow_html=True)
 
     df_all, _ = load_data()
     pref_cols = [f'Team preference list [{i}{"st" if i==1 else "nd" if i==2 else "rd" if i==3 else "th"}]' for i in range(1, 12)]
-    
     mask = df_all[pref_cols].apply(lambda x: x.astype(str).str.contains("Speedster" if team == "Speedsters" else team, case=False)).any(axis=1)
-    team_df = df_all[mask]
+    team_df = df_all[mask].copy()
 
     search = st.text_input("🔍 Search Name or SAP ID")
     if search:
         team_df = team_df[team_df['Full Name'].str.contains(search, case=False) | team_df['SAP ID'].astype(str).str.contains(search)]
 
     proc, hold, pend, done = [], [], [], []
+    # Track statuses for export
+    export_data = []
+
     for _, row in team_df.iterrows():
         sid = str(row['SAP ID'])
         stat = global_db.get(sid, {}).get(team, "Pending")
+        
+        export_data.append({
+            "Full Name": row['Full Name'],
+            "SAP ID": sid,
+            "Status": stat
+        })
+
         if stat == "In Process": proc.append(row)
         elif stat == "Hold": hold.append(row)
         elif stat == "Done": done.append(row)
@@ -198,9 +203,25 @@ else:
 
     # --- FOOTER BUTTONS ---
     st.write("---")
+    
+    # EXPORT LOGIC
+    export_df = pd.DataFrame(export_data)
+    towrite = BytesIO()
+    export_df.to_excel(towrite, index=False, engine='openpyxl')
+    towrite.seek(0)
+
+    st.download_button(
+        label="📥 Download Recruitment Report (Excel)",
+        data=towrite,
+        file_name=f"{team}_Recruitment_Status.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+
     f1, f2 = st.columns(2)
     if f1.button("🚨 CLEAR ALL DATA", use_container_width=True):
         master_reset_dialog("all")
     if f2.button("Logout", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
+    
