@@ -6,10 +6,9 @@ import os
 
 # --- CONFIG & ADMIN SETTINGS ---
 st.set_page_config(page_title="DJS SAE Recruitment Portal", layout="wide")
-MASTER_PASSWORD = "T7@k9#Lm2$Q4" 
+MASTER_PASSWORD = "MilesAdmin2026" 
 
 # --- LOGO MAPPING ---
-# Maps team names to their respective image filenames
 TEAM_LOGOS = {
     "Astra": "DJS Astra.jpg.jpg",
     "Helios": "DJS Helios.jpg.jpg",
@@ -30,33 +29,23 @@ if 'dialog_active' not in st.session_state:
 if 'logged_in' not in st.session_state: 
     st.session_state.logged_in = False
 
-# --- SILENT BACKGROUND SYNC ---
-# Auto-refreshes every 3 seconds to keep the queue live for all 400+ students
+# Auto-refresh to handle the 400+ student queue live
 if not st.session_state.dialog_active:
     st_autorefresh(interval=3000, limit=None, key="live_sync")
 
-# --- UI & COLOR STYLING ---
+# --- UI & STYLING ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* Header & Logo Container */
     .header-box { background: #1f242b; padding: 25px; border-radius: 12px; border-bottom: 4px solid #f1c40f; text-align: center; margin-bottom: 25px; }
-    
-    /* Section containers for clear visual separation */
     .process-section { background-color: #1e3a5f; padding: 25px; border-radius: 12px; border: 2px solid #3498db; margin-bottom: 25px; }
     .hold-section { background-color: #3b1e5f; padding: 25px; border-radius: 12px; border: 2px solid #9b59b6; margin-bottom: 25px; }
     .done-section { background-color: #1a1c23; padding: 20px; border-radius: 12px; border-left: 6px solid #238636; margin-top: 35px; }
-    
-    /* Status Tags for Preference Tracking */
     .tag-done { background-color: #238636; color: white; padding: 4px 12px; border-radius: 15px; margin-right: 6px; font-size: 11px; font-weight: bold; }
     .tag-hold { background-color: #9b59b6; color: white; padding: 4px 12px; border-radius: 15px; margin-right: 6px; font-size: 11px; font-weight: bold; }
     .tag-process { background-color: #3498db; color: white; padding: 4px 12px; border-radius: 15px; margin-right: 6px; font-size: 11px; font-weight: bold; }
     .tag-pending { color: #f1c40f; border: 1px solid #f1c40f; padding: 4px 12px; border-radius: 15px; margin-right: 6px; font-size: 11px; }
-    
-    /* Button alignment and styling */
-    .stButton>button { border-radius: 10px; font-weight: 600; height: 3em; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -85,12 +74,14 @@ def normalize_team(t_name):
 @st.dialog("🔒 Master Authorization Required")
 def master_reset_dialog(action_type, sap_id=None, current_team=None):
     st.session_state.dialog_active = True
+    st.warning("⚠️ This action requires admin privileges.")
     pwd = st.text_input("Enter Admin Password:", type="password")
     c1, c2 = st.columns(2)
-    if c1.button("Confirm", use_container_width=True):
+    if c1.button("Confirm Action", use_container_width=True):
         if pwd == MASTER_PASSWORD:
             if action_type == "all":
                 global_db.clear()
+                st.success("All data wiped successfully.")
             else:
                 global_db.setdefault(sap_id, {})[current_team] = "Pending"
             st.session_state.dialog_active = False
@@ -116,40 +107,40 @@ if not st.session_state.logged_in:
                     st.rerun()
                 else: st.error("Invalid Credentials")
 else:
-    # --- ADMIN SIDEBAR WITH LOGO ---
+    # --- SIDEBAR (WHERE THE CLEAR BUTTON IS LOCATED) ---
     with st.sidebar:
         current_team = st.session_state.team
-        
-        # Display the specific logo for the logged-in team
         logo_file = TEAM_LOGOS.get(current_team)
         if logo_file and os.path.exists(logo_file):
             st.image(logo_file, use_container_width=True)
         else:
-            st.info(f"Team {current_team}")
+            st.info(f"Team: {current_team}")
             
         st.divider()
-        if st.button("Wipe All Data 🚨", use_container_width=True):
+        st.subheader("🛠️ Admin Controls")
+        
+        # This is the "Clear All" button the user was looking for
+        if st.button("🚨 Wipe All Interview Data", use_container_width=True, help="Resets the status of all candidates across all teams"):
             master_reset_dialog("all")
+            
         if st.button("Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.rerun()
 
+    # --- MAIN CONTENT ---
     team = st.session_state.team
     st.markdown(f'<div class="header-box"><h1>TEAM {team.upper()}</h1></div>', unsafe_allow_html=True)
 
     df_all, _ = load_data()
     pref_cols = [f'Team preference list [{i}{"st" if i==1 else "nd" if i==2 else "rd" if i==3 else "th"}]' for i in range(1, 12)]
     
-    # Filter candidates based on preferences
     mask = df_all[pref_cols].apply(lambda x: x.astype(str).str.contains(team, case=False)).any(axis=1)
     team_df = df_all[mask]
 
-    # --- SEARCH ---
     query = st.text_input("🔍 Search Name or SAP ID")
     if query:
         team_df = team_df[team_df['Full Name'].str.contains(query, case=False, na=False) | team_df['SAP ID'].astype(str).str.contains(query, na=False)]
 
-    # Categorize students by interview status
     process_list, hold_list, pending_list, done_list = [], [], [], []
     for _, row in team_df.iterrows():
         sid = str(row['SAP ID'])
@@ -169,17 +160,13 @@ else:
                 tags_html += f'<span class="{css}">{p_team}</span>'
         return tags_html
 
-    # --- MAIN INTERFACE ---
-    
-    # Interviewing Now
     if process_list:
         st.markdown('<div class="process-section">', unsafe_allow_html=True)
-        st.subheader("🔵 Currently Interviewing")
+        st.subheader("🔵 Interviewing Now")
         for row in process_list:
             sid = str(row['SAP ID'])
-            st.markdown(f'<div style="color: #3498db; font-size: 22px; font-weight: bold;">{row["Full Name"]} ({sid})</div>', unsafe_allow_html=True)
-            st.markdown(f"<div style='margin-bottom:15px;'>{render_tags(row, sid)}</div>", unsafe_allow_html=True)
-            
+            st.markdown(f'<div style="color: #3498db; font-size: 20px; font-weight: bold;">{row["Full Name"]} ({sid})</div>', unsafe_allow_html=True)
+            st.markdown(f"<div>{render_tags(row, sid)}</div>", unsafe_allow_html=True)
             btn_cols = st.columns(3)
             if btn_cols[0].button("✅ COMPLETE", key=f"d_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "Done"; st.rerun()
@@ -189,7 +176,6 @@ else:
                 global_db.setdefault(sid, {})[team] = "Pending"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # On Hold
     if hold_list:
         st.markdown('<div class="hold-section">', unsafe_allow_html=True)
         st.subheader("🟣 On Hold")
@@ -203,16 +189,14 @@ else:
                 global_db.setdefault(sid, {})[team] = "Pending"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Waiting List
     st.subheader(f"📋 Waiting List ({len(pending_list)})")
     for row in pending_list:
         sid = str(row['SAP ID'])
         with st.expander(f"➔ {row['Full Name']} ({sid})"):
-            st.markdown(f"<div style='margin-bottom:15px;'>{render_tags(row, sid)}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='margin-bottom:10px;'>{render_tags(row, sid)}</div>", unsafe_allow_html=True)
             if st.button("▶ START INTERVIEW", key=f"s_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "In Process"; st.rerun()
 
-    # Finished
     if done_list:
         st.markdown("<div class='done-section'>", unsafe_allow_html=True)
         st.subheader("🏁 Finished Interviews")
