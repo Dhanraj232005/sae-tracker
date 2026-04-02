@@ -105,6 +105,7 @@ if not st.session_state.logged_in:
                     st.rerun()
                 else: st.error("Invalid credentials.")
 else:
+    # --- MAIN UI ---
     team = st.session_state.team
     col_logo, col_title = st.columns([1, 5])
     logo_path = TEAM_LOGOS.get(team)
@@ -116,27 +117,19 @@ else:
 
     df_all, _ = load_data()
     pref_cols = [f'Team preference list [{i}{"st" if i==1 else "nd" if i==2 else "rd" if i==3 else "th"}]' for i in range(1, 12)]
+    
+    # Filter only for the local UI view
     mask = df_all[pref_cols].apply(lambda x: x.astype(str).str.contains("Speedster" if team == "Speedsters" else team, case=False)).any(axis=1)
-    team_df = df_all[mask].copy()
+    team_df = df_all[mask]
 
     search = st.text_input("🔍 Search Name or SAP ID")
     if search:
         team_df = team_df[team_df['Full Name'].str.contains(search, case=False) | team_df['SAP ID'].astype(str).str.contains(search)]
 
     proc, hold, pend, done = [], [], [], []
-    # Track statuses for export
-    export_data = []
-
     for _, row in team_df.iterrows():
         sid = str(row['SAP ID'])
         stat = global_db.get(sid, {}).get(team, "Pending")
-        
-        export_data.append({
-            "Full Name": row['Full Name'],
-            "SAP ID": sid,
-            "Status": stat
-        })
-
         if stat == "In Process": proc.append(row)
         elif stat == "Hold": hold.append(row)
         elif stat == "Done": done.append(row)
@@ -152,7 +145,7 @@ else:
                 html += f'<span class="{cls}">{t}</span>'
         return html
 
-    # Sections
+    # Main Sections (Local View)
     if proc:
         st.markdown('<div class="process-section">', unsafe_allow_html=True)
         st.subheader("🔵 Currently Interviewing")
@@ -201,19 +194,35 @@ else:
                 master_reset_dialog("single", sid, team)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- FOOTER BUTTONS ---
+    # --- MASTER EXPORT LOGIC (ALL TEAMS) ---
     st.write("---")
     
-    # EXPORT LOGIC
-    export_df = pd.DataFrame(export_data)
+    all_teams_export = []
+    # Loop through every student in the original Excel file
+    for _, row in df_all.iterrows():
+        sid = str(row['SAP ID'])
+        # Check status for every possible team for this student
+        for c in pref_cols:
+            t = normalize_team(row[c])
+            if t:
+                # Get the status from our global database (defaults to Pending)
+                current_status = global_db.get(sid, {}).get(t, "Pending")
+                all_teams_export.append({
+                    "Student Name": row['Full Name'],
+                    "SAP ID": sid,
+                    "Team Name": t,
+                    "Status": current_status
+                })
+
+    master_df = pd.DataFrame(all_teams_export)
     towrite = BytesIO()
-    export_df.to_excel(towrite, index=False, engine='openpyxl')
+    master_df.to_excel(towrite, index=False, engine='openpyxl')
     towrite.seek(0)
 
     st.download_button(
-        label="📥 Download Recruitment Report (Excel)",
+        label="📥 Download ALL TEAMS Recruitment Report",
         data=towrite,
-        file_name=f"{team}_Recruitment_Status.xlsx",
+        file_name="SAE_Master_Recruitment_Report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
