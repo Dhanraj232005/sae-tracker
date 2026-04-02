@@ -19,7 +19,7 @@ TEAM_LOGOS = {
     "Racing": "DJS Racing.jpg.jpg",
     "Robocon": "DJS Robocon.jpg.jpg",
     "Skylark": "DJS Skylark.jpg.jpg",
-    "THE SPEEDSTERS": "DJS Speedsters.jpg.jpg"
+    "Speedsters": "DJS Speedsters.jpg.jpg"
 }
 
 # --- STATE MANAGEMENT ---
@@ -69,7 +69,7 @@ def load_data():
 def normalize_team(t_name):
     if pd.isna(t_name): return ""
     name = str(t_name).strip()
-    if "Speedster" in name.title(): return "THE SPEEDSTERS"
+    if "Speedsters" in name.title(): return "Speedsters"
     return name.title()
 
 # --- ADMIN RESET DIALOG ---
