@@ -6,7 +6,7 @@ from io import BytesIO
 
 # --- CONFIG & ADMIN SETTINGS ---
 st.set_page_config(page_title="DJS SAE Recruitment Portal", layout="wide")
-MASTER_PASSWORD = "T7@k9#Lm2$Q4" 
+MASTER_PASSWORD = "MilesAdmin2026" 
 
 # --- LOGO MAPPING ---
 TEAM_LOGOS = {
@@ -38,14 +38,22 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     .header-box { background: #1f242b; padding: 25px; border-radius: 12px; border-bottom: 5px solid #f1c40f; text-align: center; margin-bottom: 25px; }
-    .process-section { background-color: #1e3a5f; padding: 25px; border-radius: 12px; border: 2px solid #3498db; margin-bottom: 25px; }
-    .hold-section { background-color: #3b1e5f; padding: 25px; border-radius: 12px; border: 2px solid #9b59b6; margin-bottom: 25px; }
-    .done-section { background-color: #1a1c23; padding: 20px; border-radius: 12px; border-left: 6px solid #238636; margin-top: 35px; }
     
-    .tag-done { background-color: #238636; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 5px; font-size: 11px; }
-    .tag-hold { background-color: #9b59b6; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 5px; font-size: 11px; }
-    .tag-process { background-color: #3498db; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 5px; font-size: 11px; }
-    .tag-pending { border: 1px solid #f1c40f; color: #f1c40f; padding: 4px 10px; border-radius: 12px; margin-right: 5px; font-size: 11px; }
+    /* Section Styles */
+    .process-section { background-color: #1e3a5f; padding: 20px; border-radius: 12px; border: 2px solid #3498db; margin-bottom: 20px; }
+    .hold-section { background-color: #3b1e5f; padding: 20px; border-radius: 12px; border: 2px solid #9b59b6; margin-bottom: 20px; }
+    .done-section { background-color: #1a1c23; padding: 15px; border-radius: 12px; border-left: 6px solid #238636; margin-top: 10px; margin-bottom: 10px; }
+    
+    /* Horizontal Layout Container */
+    .horizontal-row { display: flex; align-items: center; justify-content: flex-start; gap: 15px; flex-wrap: wrap; margin-bottom: 10px; }
+    .candidate-name { font-size: 1.2rem; font-weight: bold; min-width: fit-content; }
+    
+    /* Tag Styles */
+    .tag-container { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag-done { background-color: #238636; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+    .tag-hold { background-color: #9b59b6; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+    .tag-process { background-color: #3498db; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+    .tag-pending { border: 1px solid #f1c40f; color: #f1c40f; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -105,7 +113,6 @@ if not st.session_state.logged_in:
                     st.rerun()
                 else: st.error("Invalid credentials.")
 else:
-    # --- MAIN UI ---
     team = st.session_state.team
     col_logo, col_title = st.columns([1, 5])
     logo_path = TEAM_LOGOS.get(team)
@@ -117,7 +124,6 @@ else:
 
     df_all, _ = load_data()
     pref_cols = [f'Team preference list [{i}{"st" if i==1 else "nd" if i==2 else "rd" if i==3 else "th"}]' for i in range(1, 12)]
-    
     mask = df_all[pref_cols].apply(lambda x: x.astype(str).str.contains("Speedster" if team == "Speedsters" else team, case=False)).any(axis=1)
     team_df = df_all[mask]
 
@@ -134,24 +140,30 @@ else:
         elif stat == "Done": done.append(row)
         else: pend.append(row)
 
-    def draw_tags(row, sid):
-        html = ""
+    def draw_combined_row(row, sid):
+        # Generates the horizontal HTML for Name + Tags
+        tags_html = ""
         for c in pref_cols:
             t = normalize_team(row[c])
             if t:
                 s = global_db.get(sid, {}).get(t, "Pending")
                 cls = "tag-done" if s=="Done" else "tag-hold" if s=="Hold" else "tag-process" if s=="In Process" else "tag-pending"
-                html += f'<span class="{cls}">{t}</span>'
-        return html
+                tags_html += f'<span class="{cls}">{t}</span>'
+        
+        return f"""
+        <div class="horizontal-row">
+            <div class="candidate-name">{row['Full Name']} ({sid})</div>
+            <div class="tag-container">{tags_html}</div>
+        </div>
+        """
 
-    # Sections
+    # --- SECTIONS ---
     if proc:
         st.markdown('<div class="process-section">', unsafe_allow_html=True)
         st.subheader("🔵 Currently Interviewing")
         for r in proc:
             sid = str(r['SAP ID'])
-            st.write(f"### {r['Full Name']} ({sid})")
-            st.markdown(f"<div>{draw_tags(r, sid)}</div>", unsafe_allow_html=True)
+            st.markdown(draw_combined_row(r, sid), unsafe_allow_html=True)
             c = st.columns(3)
             if c[0].button("✅ COMPLETE", key=f"d_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "Done"; st.rerun()
@@ -166,7 +178,7 @@ else:
         st.subheader("🟣 On Hold")
         for r in hold:
             sid = str(r['SAP ID'])
-            st.write(f"**{r['Full Name']}** ({sid})")
+            st.markdown(draw_combined_row(r, sid), unsafe_allow_html=True)
             c = st.columns(2)
             if c[0].button("▶ RESUME", key=f"re_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "In Process"; st.rerun()
@@ -178,7 +190,7 @@ else:
     for r in pend:
         sid = str(r['SAP ID'])
         with st.expander(f"➔ {r['Full Name']} ({sid})"):
-            st.markdown(f"<div style='margin-bottom:10px;'>{draw_tags(r, sid)}</div>", unsafe_allow_html=True)
+            st.markdown(draw_combined_row(r, sid), unsafe_allow_html=True)
             if st.button("▶ START INTERVIEW", key=f"s_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "In Process"; st.rerun()
 
@@ -187,16 +199,17 @@ else:
         st.subheader("🏁 Finished")
         for r in done:
             sid = str(r['SAP ID'])
-            c1, c2 = st.columns([5, 1])
-            c1.write(f"✅ **{r['Full Name']}** ({sid})")
-            if c2.button("Reset 🔒", key=f"u_{sid}", use_container_width=True):
-                master_reset_dialog("single", sid, team)
+            cols = st.columns([4, 1])
+            with cols[0]:
+                st.markdown(draw_combined_row(r, sid), unsafe_allow_html=True)
+            with cols[1]:
+                if st.button("Reset 🔒", key=f"u_{sid}", use_container_width=True):
+                    master_reset_dialog("single", sid, team)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- HORIZONTAL FOOTER BUTTONS ---
+    # --- FOOTER ---
     st.write("---")
-    
-    # 1. Prepare All Teams Export Data
+    # Master Export
     all_teams_export = []
     for _, row in df_all.iterrows():
         sid = str(row['SAP ID'])
@@ -204,31 +217,15 @@ else:
             t = normalize_team(row[c])
             if t:
                 current_status = global_db.get(sid, {}).get(t, "Pending")
-                all_teams_export.append({
-                    "Student Name": row['Full Name'],
-                    "SAP ID": sid,
-                    "Team Name": t,
-                    "Status": current_status
-                })
-    master_df = pd.DataFrame(all_teams_export)
+                all_teams_export.append({"Student": row['Full Name'], "SAP ID": sid, "Team": t, "Status": current_status})
+    
     towrite = BytesIO()
-    master_df.to_excel(towrite, index=False, engine='openpyxl')
+    pd.DataFrame(all_teams_export).to_excel(towrite, index=False, engine='openpyxl')
     towrite.seek(0)
 
-    # 2. Horizontal Button Layout
     f1, f2, f3 = st.columns(3)
-    
-    f1.download_button(
-        label="📥 Download Report",
-        data=towrite,
-        file_name="SAE_Master_Report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
-    
-    if f2.button("🚨 CLEAR ALL", use_container_width=True):
-        master_reset_dialog("all")
-        
+    f1.download_button("📥 Master Report", data=towrite, file_name="SAE_Master.xlsx", use_container_width=True)
+    if f2.button("🚨 CLEAR ALL", use_container_width=True): master_reset_dialog("all")
     if f3.button("Logout", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
