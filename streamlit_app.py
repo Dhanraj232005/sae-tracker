@@ -5,7 +5,7 @@ import os
 
 # --- CONFIG & ADMIN SETTINGS ---
 st.set_page_config(page_title="DJS SAE Recruitment Portal", layout="wide")
-MASTER_PASSWORD = "1234567890qwertyuiop" 
+MASTER_PASSWORD = "T7@k9#Lm2$Q4" 
 
 # --- LOGO MAPPING ---
 TEAM_LOGOS = {
