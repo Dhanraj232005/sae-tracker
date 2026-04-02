@@ -5,22 +5,22 @@ import os
 
 # --- CONFIG & ADMIN SETTINGS ---
 st.set_page_config(page_title="DJS SAE Recruitment Portal", layout="wide")
-MASTER_PASSWORD = "MilesAdmin2026" 
+MASTER_PASSWORD = "T7@k9#Lm2$Q4" 
 
 # --- LOGO MAPPING ---
 # Updated to match your final logo list and the specific spelling: THE SPEEDSTERS
 TEAM_LOGOS = {
-    "Astra": "DJS Astra.jpg.jpg",
-    "Helios": "DJS Helios.jpg.jpg",
-    "Impulse": "DJS Impulse.jpg.jpg",
-    "Karting": "DJS Karting.jpg.jpg",
-    "Kronos": "DJS Kronos.jpg.jpg",
-    "Miles": "DJS Miles.jpg.jpg",
-    "Phoenix": "DJS Phoenix.jpg.jpg",
-    "Racing": "DJS Racing.jpg.jpg",
-    "Robocon": "DJS Robocon.jpg.jpg",
-    "Skylark": "DJS Skylark.jpg.jpg",
-    "THE SPEEDSTERS": "DJS Speedsters.jpg.jpg"
+    "Astra": "DJS Astra.jpg",
+    "Helios": "DJS Helios.jpg",
+    "Impulse": "DJS Impulse.jpg",
+    "Karting": "DJS Karting.jpg",
+    "Kronos": "DJS Kronos.jpg",
+    "Miles": "DJS Miles.jpg",
+    "Phoenix": "DJS Phoenix.jpg",
+    "Racing": "DJS Racing.jpg",
+    "Robocon": "DJS Robocon.jpg",
+    "Skylark": "DJS Skylark.jpg",
+    "THE SPEEDSTERS": "DJS Speedsters.jpg"
 }
 
 # --- STATE MANAGEMENT ---
