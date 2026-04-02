@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 from streamlit_autorefresh import st_autorefresh
 import os
 
@@ -9,6 +8,7 @@ st.set_page_config(page_title="DJS SAE Recruitment Portal", layout="wide")
 MASTER_PASSWORD = "MilesAdmin2026" 
 
 # --- LOGO MAPPING ---
+# Updated to match your final logo list and the specific spelling: THE SPEEDSTERS
 TEAM_LOGOS = {
     "Astra": "DJS Astra.jpg.jpg",
     "Helios": "DJS Helios.jpg.jpg",
@@ -20,7 +20,7 @@ TEAM_LOGOS = {
     "Racing": "DJS Racing.jpg.jpg",
     "Robocon": "DJS Robocon.jpg.jpg",
     "Skylark": "DJS Skylark.jpg.jpg",
-    "Speedsters": "DJS Speedsters.jpg.jpg"
+    "THE SPEEDSTERS": "DJS Speedsters.jpg.jpg"
 }
 
 # --- STATE MANAGEMENT ---
@@ -29,23 +29,28 @@ if 'dialog_active' not in st.session_state:
 if 'logged_in' not in st.session_state: 
     st.session_state.logged_in = False
 
-# Auto-refresh to handle the 400+ student queue live
+# Silent Sync (No loading bars or audio alerts)
 if not st.session_state.dialog_active:
     st_autorefresh(interval=3000, limit=None, key="live_sync")
 
-# --- UI & STYLING ---
+# --- UI STYLING ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
-    .header-box { background: #1f242b; padding: 25px; border-radius: 12px; border-bottom: 4px solid #f1c40f; text-align: center; margin-bottom: 25px; }
+    .header-box { background: #1f242b; padding: 25px; border-radius: 12px; border-bottom: 5px solid #f1c40f; text-align: center; margin-bottom: 25px; }
     .process-section { background-color: #1e3a5f; padding: 25px; border-radius: 12px; border: 2px solid #3498db; margin-bottom: 25px; }
     .hold-section { background-color: #3b1e5f; padding: 25px; border-radius: 12px; border: 2px solid #9b59b6; margin-bottom: 25px; }
     .done-section { background-color: #1a1c23; padding: 20px; border-radius: 12px; border-left: 6px solid #238636; margin-top: 35px; }
-    .tag-done { background-color: #238636; color: white; padding: 4px 12px; border-radius: 15px; margin-right: 6px; font-size: 11px; font-weight: bold; }
-    .tag-hold { background-color: #9b59b6; color: white; padding: 4px 12px; border-radius: 15px; margin-right: 6px; font-size: 11px; font-weight: bold; }
-    .tag-process { background-color: #3498db; color: white; padding: 4px 12px; border-radius: 15px; margin-right: 6px; font-size: 11px; font-weight: bold; }
-    .tag-pending { color: #f1c40f; border: 1px solid #f1c40f; padding: 4px 12px; border-radius: 15px; margin-right: 6px; font-size: 11px; }
+    
+    /* Clean button look */
+    .stButton>button { border-radius: 8px; font-weight: 600; }
+    
+    /* Status Tags */
+    .tag-done { background-color: #238636; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 5px; font-size: 11px; }
+    .tag-hold { background-color: #9b59b6; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 5px; font-size: 11px; }
+    .tag-process { background-color: #3498db; color: white; padding: 4px 10px; border-radius: 12px; margin-right: 5px; font-size: 11px; }
+    .tag-pending { border: 1px solid #f1c40f; color: #f1c40f; padding: 4px 10px; border-radius: 12px; margin-right: 5px; font-size: 11px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -68,142 +73,147 @@ def load_data():
 
 def normalize_team(t_name):
     if pd.isna(t_name): return ""
-    return str(t_name).strip().title()
+    name = str(t_name).strip()
+    if "Speedsters" in name or "SPEEDSTERS" in name: return "THE SPEEDSTERS"
+    return name.title()
 
-# --- MASTER KEY DIALOG ---
-@st.dialog("🔒 Master Authorization Required")
+# --- ADMIN RESET DIALOG ---
+@st.dialog("⚠️ MASTER RESET")
 def master_reset_dialog(action_type, sap_id=None, current_team=None):
     st.session_state.dialog_active = True
-    st.warning("⚠️ This action requires admin privileges.")
-    pwd = st.text_input("Enter Admin Password:", type="password")
-    c1, c2 = st.columns(2)
-    if c1.button("Confirm Action", use_container_width=True):
+    st.error("Admin credentials required to clear data.")
+    pwd = st.text_input("Master Password", type="password")
+    if st.button("Confirm Wipe", use_container_width=True):
         if pwd == MASTER_PASSWORD:
             if action_type == "all":
                 global_db.clear()
-                st.success("All data wiped successfully.")
             else:
                 global_db.setdefault(sap_id, {})[current_team] = "Pending"
             st.session_state.dialog_active = False
             st.rerun()
         else:
-            st.error("Invalid Password.")
-    if c2.button("Cancel", use_container_width=True):
-        st.session_state.dialog_active = False
-        st.rerun()
+            st.error("Access Denied.")
 
 # --- LOGIN ---
 if not st.session_state.logged_in:
-    st.markdown("<h2 style='text-align: center;'>SAE RECRUITMENT LOGIN</h2>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>SAE RECRUITMENT</h1>", unsafe_allow_html=True)
     with st.container(border=True):
-        u, p = st.text_input("Username"), st.text_input("Password", type="password")
-        if st.button("Login", use_container_width=True):
+        u = st.text_input("Username")
+        p = st.text_input("Password", type="password")
+        if st.button("Access Portal", use_container_width=True):
             df_all, cr = load_data()
             if df_all is not None:
-                user_match = cr[(cr['Username'] == u) & (cr['Password'] == p)]
-                if not user_match.empty:
+                match = cr[(cr['Username'] == u) & (cr['Password'] == p)]
+                if not match.empty:
                     st.session_state.logged_in = True
-                    st.session_state.team = normalize_team(user_match.iloc[0]['Assigned Team'])
+                    st.session_state.team = normalize_team(match.iloc[0]['Assigned Team'])
                     st.rerun()
-                else: st.error("Invalid Credentials")
+                else: st.error("Wrong credentials.")
 else:
-    # --- SIDEBAR (WHERE THE CLEAR BUTTON IS LOCATED) ---
+    # --- SIDEBAR (ADMIN & LOGO) ---
     with st.sidebar:
-        current_team = st.session_state.team
-        logo_file = TEAM_LOGOS.get(current_team)
-        if logo_file and os.path.exists(logo_file):
-            st.image(logo_file, use_container_width=True)
+        # 1. CLEAR ALL BUTTON (Placed at the very top for visibility)
+        st.subheader("🛠️ ADMIN TOOLS")
+        if st.button("🚨 CLEAR ALL DATA", use_container_width=True):
+            master_reset_dialog("all")
+        st.divider()
+
+        # 2. LOGO
+        team = st.session_state.team
+        logo_path = TEAM_LOGOS.get(team)
+        if logo_path and os.path.exists(logo_path):
+            st.image(logo_path, use_container_width=True)
         else:
-            st.info(f"Team: {current_team}")
+            st.info(f"Team: {team}")
             
         st.divider()
-        st.subheader("🛠️ Admin Controls")
-        
-        # This is the "Clear All" button the user was looking for
-        if st.button("🚨 Wipe All Interview Data", use_container_width=True, help="Resets the status of all candidates across all teams"):
-            master_reset_dialog("all")
-            
         if st.button("Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.rerun()
 
-    # --- MAIN CONTENT ---
-    team = st.session_state.team
-    st.markdown(f'<div class="header-box"><h1>TEAM {team.upper()}</h1></div>', unsafe_allow_html=True)
+    # --- MAIN INTERFACE ---
+    st.markdown(f'<div class="header-box"><h1>{team.upper()}</h1></div>', unsafe_allow_html=True)
 
     df_all, _ = load_data()
     pref_cols = [f'Team preference list [{i}{"st" if i==1 else "nd" if i==2 else "rd" if i==3 else "th"}]' for i in range(1, 12)]
     
+    # Filter for candidates
     mask = df_all[pref_cols].apply(lambda x: x.astype(str).str.contains(team, case=False)).any(axis=1)
     team_df = df_all[mask]
 
-    query = st.text_input("🔍 Search Name or SAP ID")
-    if query:
-        team_df = team_df[team_df['Full Name'].str.contains(query, case=False, na=False) | team_df['SAP ID'].astype(str).str.contains(query, na=False)]
+    # Search (Search name or SAP ID)
+    search = st.text_input("🔍 Search Student Name / SAP ID")
+    if search:
+        team_df = team_df[team_df['Full Name'].str.contains(search, case=False) | team_df['SAP ID'].astype(str).str.contains(search)]
 
-    process_list, hold_list, pending_list, done_list = [], [], [], []
+    # Status Lists
+    proc, hold, pend, done = [], [], [], []
     for _, row in team_df.iterrows():
         sid = str(row['SAP ID'])
-        status = global_db.get(sid, {}).get(team, "Pending")
-        if status == "In Process": process_list.append(row)
-        elif status == "Hold": hold_list.append(row)
-        elif status == "Done": done_list.append(row)
-        else: pending_list.append(row)
+        stat = global_db.get(sid, {}).get(team, "Pending")
+        if stat == "In Process": proc.append(row)
+        elif stat == "Hold": hold.append(row)
+        elif stat == "Done": done.append(row)
+        else: pend.append(row)
 
-    def render_tags(row_data, sap_id):
-        tags_html = ""
-        for col in pref_cols:
-            p_team = normalize_team(row_data[col])
-            if p_team:
-                t_stat = global_db.get(sap_id, {}).get(p_team, "Pending")
-                css = "tag-done" if t_stat == "Done" else "tag-hold" if t_stat == "Hold" else "tag-process" if t_stat == "In Process" else "tag-pending"
-                tags_html += f'<span class="{css}">{p_team}</span>'
-        return tags_html
+    def draw_tags(row, sid):
+        html = ""
+        for c in pref_cols:
+            t = normalize_team(row[c])
+            if t:
+                s = global_db.get(sid, {}).get(t, "Pending")
+                cls = "tag-done" if s=="Done" else "tag-hold" if s=="Hold" else "tag-process" if s=="In Process" else "tag-pending"
+                html += f'<span class="{cls}">{t}</span>'
+        return html
 
-    if process_list:
+    # 1. INTERVIEWING NOW
+    if proc:
         st.markdown('<div class="process-section">', unsafe_allow_html=True)
-        st.subheader("🔵 Interviewing Now")
-        for row in process_list:
-            sid = str(row['SAP ID'])
-            st.markdown(f'<div style="color: #3498db; font-size: 20px; font-weight: bold;">{row["Full Name"]} ({sid})</div>', unsafe_allow_html=True)
-            st.markdown(f"<div>{render_tags(row, sid)}</div>", unsafe_allow_html=True)
-            btn_cols = st.columns(3)
-            if btn_cols[0].button("✅ COMPLETE", key=f"d_{sid}", use_container_width=True):
+        st.subheader("🔵 Current Interview")
+        for r in proc:
+            sid = str(r['SAP ID'])
+            st.write(f"### {r['Full Name']} ({sid})")
+            st.markdown(f"<div>{draw_tags(r, sid)}</div>", unsafe_allow_html=True)
+            cols = st.columns(3)
+            if cols[0].button("✅ COMPLETE", key=f"d_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "Done"; st.rerun()
-            if btn_cols[1].button("⏸️ HOLD", key=f"h_{sid}", use_container_width=True):
+            if cols[1].button("⏸️ HOLD", key=f"h_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "Hold"; st.rerun()
-            if btn_cols[2].button("🔙 QUEUE", key=f"q_{sid}", use_container_width=True):
+            if cols[2].button("🔙 QUEUE", key=f"q_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "Pending"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    if hold_list:
+    # 2. ON HOLD
+    if hold:
         st.markdown('<div class="hold-section">', unsafe_allow_html=True)
         st.subheader("🟣 On Hold")
-        for row in hold_list:
-            sid = str(row['SAP ID'])
-            st.write(f"**{row['Full Name']}** ({sid})")
-            btn_cols = st.columns(2)
-            if btn_cols[0].button("▶ RESUME", key=f"r_{sid}", use_container_width=True):
+        for r in hold:
+            sid = str(r['SAP ID'])
+            st.write(f"**{r['Full Name']}** ({sid})")
+            cols = st.columns(2)
+            if cols[0].button("▶ RESUME", key=f"res_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "In Process"; st.rerun()
-            if btn_cols[1].button("🔙 QUEUE", key=f"q2_{sid}", use_container_width=True):
+            if cols[1].button("🔙 QUEUE", key=f"q2_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "Pending"; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    st.subheader(f"📋 Waiting List ({len(pending_list)})")
-    for row in pending_list:
-        sid = str(row['SAP ID'])
-        with st.expander(f"➔ {row['Full Name']} ({sid})"):
-            st.markdown(f"<div style='margin-bottom:10px;'>{render_tags(row, sid)}</div>", unsafe_allow_html=True)
-            if st.button("▶ START INTERVIEW", key=f"s_{sid}", use_container_width=True):
+    # 3. WAITING LIST
+    st.subheader(f"📋 Waiting List ({len(pend)})")
+    for r in pend:
+        sid = str(r['SAP ID'])
+        with st.expander(f"➔ {r['Full Name']} ({sid})"):
+            st.markdown(f"<div style='margin-bottom:10px;'>{draw_tags(r, sid)}</div>", unsafe_allow_html=True)
+            if st.button("▶ START INTERVIEW", key=f"str_{sid}", use_container_width=True):
                 global_db.setdefault(sid, {})[team] = "In Process"; st.rerun()
 
-    if done_list:
+    # 4. FINISHED
+    if done:
         st.markdown("<div class='done-section'>", unsafe_allow_html=True)
-        st.subheader("🏁 Finished Interviews")
-        for row in done_list:
-            sid = str(row['SAP ID'])
-            c_a, c_b = st.columns([5, 1])
-            c_a.write(f"✅ **{row['Full Name']}** ({sid})")
-            if c_b.button("Undo 🔒", key=f"u_{sid}", use_container_width=True):
+        st.subheader("🏁 Finished Today")
+        for r in done:
+            sid = str(r['SAP ID'])
+            c1, c2 = st.columns([5, 1])
+            c1.write(f"✅ **{r['Full Name']}** ({sid})")
+            if c2.button("Undo 🔒", key=f"un_{sid}", use_container_width=True):
                 master_reset_dialog("single", sid, team)
         st.markdown("</div>", unsafe_allow_html=True)
