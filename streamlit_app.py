@@ -28,7 +28,7 @@ if 'dialog_active' not in st.session_state:
 if 'logged_in' not in st.session_state: 
     st.session_state.logged_in = False
 
-# Silent Sync (No loading bars)
+# Silent Sync
 if not st.session_state.dialog_active:
     st_autorefresh(interval=3000, limit=None, key="live_sync")
 
@@ -69,7 +69,7 @@ def load_data():
 def normalize_team(t_name):
     if pd.isna(t_name): return ""
     name = str(t_name).strip()
-    if "Speedsters" in name.title(): return "Speedsters"
+    if "Speedster" in name.title(): return "Speedsters"
     return name.title()
 
 # --- ADMIN RESET DIALOG ---
@@ -114,12 +114,14 @@ else:
     if logo_path and os.path.exists(logo_path):
         col_logo.image(logo_path, width=110)
     
-    st.markdown(f'<div class="header-box"><h1>{team.upper()}</h1></div>', unsafe_allow_html=True)
+    # Strictly display "SPEEDSTERS" for the specific team on screen
+    display_name = "SPEEDSTERS" if team == "Speedsters" else team.upper()
+    st.markdown(f'<div class="header-box"><h1>{display_name}</h1></div>', unsafe_allow_html=True)
 
     df_all, _ = load_data()
     pref_cols = [f'Team preference list [{i}{"st" if i==1 else "nd" if i==2 else "rd" if i==3 else "th"}]' for i in range(1, 12)]
     
-    mask = df_all[pref_cols].apply(lambda x: x.astype(str).str.contains(team.replace("THE ", ""), case=False)).any(axis=1)
+    mask = df_all[pref_cols].apply(lambda x: x.astype(str).str.contains("Speedster" if team == "Speedsters" else team, case=False)).any(axis=1)
     team_df = df_all[mask]
 
     search = st.text_input("🔍 Search Name or SAP ID")
